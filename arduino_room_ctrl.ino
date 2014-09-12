@@ -19,8 +19,8 @@
 #define FAN_LOW 3
 #define FAN_MED 4
 #define FAN_HIGH 5
-#define SEND_FAN_CODE(code_index) //irsend.sendRaw(rawCodes[code_index], FAN_CODE_LENGTH, 38)
-unsigned int rawCodes[6][24];
+#define SEND_FAN_CODE(code_index) irsend.sendRaw(rawCodes[code_index], FAN_CODE_LENGTH, 38)
+unsigned int rawCodes[6][24] = {0xFFA25D, 0xFFE21D, 0xFFE01F, 0xFFE01F, 0xFF18E7, 0xFF5AA5};
 IRsend irsend;
 
 //network stuff, load config from EEPROM, which looks like:
@@ -34,22 +34,22 @@ void setup()
 {
   DDRD |= 0xf8; //set 7, 6, 5, 4, 3 as output
   PORTD |= 0x90; //set 7, 4 as HIGH
-  
+
   //5:OCR0A, 6:OCR0B, 3: OCR2A
   TCCR0A = TCCR2A = _BV(COM2A1) | _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
   TCCR0B = TCCR2B = _BV(CS22);
   OCR0A = 255; //green maximum
   OCR0B = 255; //red maximum
   OCR2A = 255; //blue maximum
-  
+
   Ethernet.begin(mac, ip);
   server.begin();
-}  
-  
+}
+
 /*sample request is:
   GET /abc HTTP/1.1
   longest string is going to be GET /f255 HTTP/1.1 */
-#define BUFFER_SIZE 20 
+#define BUFFER_SIZE 20
 
 typedef struct
 {
@@ -57,10 +57,10 @@ typedef struct
   unsigned int before:1;
 } PIRState;
 
-void loop() 
+void loop()
 {
   static PIRState presence = {0, 0};
-  
+
   //everything arduino-controlled is enabled only with presence.
   //sernarios: no presence -> presence: open lights, and enable web server
   //           presence -> presence   : keep web serving only
@@ -70,7 +70,7 @@ void loop()
   {
       PORTD |= 0x90; //7,4->HIGH
       SendWOLMagicPacket(imac); //wake up mac
-      
+
       /// \todo When reopening lights we have to remember last state
       /// \todo Different actions for day and night
   }
@@ -87,10 +87,10 @@ void loop()
       {
           char buffer[BUFFER_SIZE];
           int offset;
-          
+
           offset = 0;
-         
-          while (client.connected()) 
+
+          while (client.connected())
             if (client.available())
             {
               buffer[offset] = client.read();
@@ -101,7 +101,7 @@ void loop()
               }
               ++offset;
             }
-            
+
           //switch() is expensive :(
           if       (buffer[5] == '1') PORTD &= 0x7f; //turn off white lights
           else if  (buffer[5] == '2') PORTD |= 0x80; //turn on white lights
@@ -133,11 +133,11 @@ void SendWOLMagicPacket(byte * pMacAddress)
   const int nWOLPort = 7;
   const int nLocalPort = 8888; // to "listen" on (only needed to initialize udp)
 
-  // Compose magic packet to wake remote machine. 
+  // Compose magic packet to wake remote machine.
   for (int i=6; i < 102; i++)
     abyMagicPacket[i]=pMacAddress[i%6];
 
-  if (UDP_RawSendto(abyMagicPacket, nMagicPacketLength, nLocalPort, 
+  if (UDP_RawSendto(abyMagicPacket, nMagicPacketLength, nLocalPort,
   abyTargetIPAddress, nWOLPort) != nMagicPacketLength)
     Serial.println("Error sending WOL packet");
 }
@@ -149,10 +149,10 @@ int UDP_RawSendto(byte* pDataPacket, int nPacketLength, int nLocalPort, byte* pR
 
   // Find a free socket id.
   nSocketId = MAX_SOCK_NUM;
-  for (int i = 0; i < MAX_SOCK_NUM; i++) 
+  for (int i = 0; i < MAX_SOCK_NUM; i++)
   {
     uint8_t s = W5100.readSnSR(i);
-    if (s == SnSR::CLOSED || s == SnSR::FIN_WAIT) 
+    if (s == SnSR::CLOSED || s == SnSR::FIN_WAIT)
 	  {
       nSocketId = i;
       break;
@@ -160,7 +160,7 @@ int UDP_RawSendto(byte* pDataPacket, int nPacketLength, int nLocalPort, byte* pR
   }
 
   if (nSocketId == MAX_SOCK_NUM)
-    return 0; // couldn't find one. 
+    return 0; // couldn't find one.
 
   if (socket(nSocketId, SnMR::UDP, nLocalPort, 0))
   {
